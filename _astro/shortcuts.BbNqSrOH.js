@@ -1,0 +1,1 @@
+var e={search:`Mod+K`,filterSidebar:`/`,previousPage:`[`,nextPage:`]`};export{e as t};

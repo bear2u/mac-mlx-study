@@ -1,0 +1,22 @@
+# 맥 AI 추론 실습실
+
+> 내 맥에서 언어 모델을 실행하고 추론 성능을 측정하는 열두 번의 실험
+
+Full documentation (discoverable current pages, one document): https://bear2u.github.io/mac-mlx-study/llms-full.txt
+
+## Pages
+
+- [맥 AI 추론 실습실](https://bear2u.github.io/mac-mlx-study/index.md) — 한 대의 맥으로 모델 실행부터 GPU 성능 분석까지 공부하는 한국어 실습 과정
+- [01 · 맥에서 첫 모델 실행하기](https://bear2u.github.io/mac-mlx-study/lesson-01/index.md) — 내 맥은 어떤 조건에서 첫 답을 생성했을까?
+- [02 · 다음 토큰이 정해지는 과정](https://bear2u.github.io/mac-mlx-study/lesson-02/index.md) — 모델이 문장을 어디에서 끊어 읽을까?
+- [03 · 입력 처리와 답변 생성 측정하기](https://bear2u.github.io/mac-mlx-study/lesson-03/index.md) — 긴 문서를 넣으면 어느 구간이 길어질까?
+- [04 · 4비트와 8비트 비교하기](https://bear2u.github.io/mac-mlx-study/lesson-04/index.md) — 메모리를 줄이면 내 과제의 정답률은 얼마나 달라질까?
+- [05 · llama.cpp로 기준값 만들기](https://bear2u.github.io/mac-mlx-study/lesson-05/index.md) — 다른 추론 엔진에서 같은 작업을 어떻게 비교할까?
+- [06 · KV 캐시의 메모리 비용](https://bear2u.github.io/mac-mlx-study/lesson-06/index.md) — 대화가 길어지면 어떤 데이터가 쌓일까?
+- [07 · 공통 문서의 캐시 재사용하기](https://bear2u.github.io/mac-mlx-study/lesson-07/index.md) — 같은 문서를 두 번 읽는 비용을 줄일 수 있을까?
+- [08 · 로컬 스트리밍 API와 첫 토큰](https://bear2u.github.io/mac-mlx-study/lesson-08/index.md) — 사용자가 실제로 느끼는 대기 시간은 얼마일까?
+- [09 · 여러 요청을 동시에 보내기](https://bear2u.github.io/mac-mlx-study/lesson-09/index.md) — 동시 사용자가 늘면 누가 더 오래 기다릴까?
+- [10 · Instruments로 병목 찾기](https://bear2u.github.io/mac-mlx-study/lesson-10/index.md) — 첫 답이 늦는 동안 GPU는 무엇을 하고 있을까?
+- [11 · RMSNorm 연산의 정확도와 속도](https://bear2u.github.io/mac-mlx-study/lesson-11/index.md) — 작은 연산을 바꾸었을 때 같은 결과를 더 빨리 얻을까?
+- [12 · 내 맥의 추론 실험 보고서](https://bear2u.github.io/mac-mlx-study/lesson-12/index.md) — 내가 쓰는 작업에 가장 적합한 설정은 무엇일까?
+- [프로젝트 실습](https://bear2u.github.io/mac-mlx-study/projects/llms.txt)

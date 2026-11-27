@@ -1,0 +1,1 @@
+import{t as e}from"./url-param-O-Ivxm52.CpSvOf4J.js";e(`[data-nb-switch]`,e=>{let t=()=>{e.setAttribute(`aria-checked`,String(e.getAttribute(`aria-checked`)!==`true`)),e.dispatchEvent(new Event(`change`,{bubbles:!0}))};return e.addEventListener(`click`,t),()=>e.removeEventListener(`click`,t)});

@@ -1,0 +1,28 @@
+---
+title: "03 · 입력 처리와 답변 생성 측정하기"
+description: "긴 문서를 넣으면 어느 구간이 길어질까?"
+---
+
+> Documentation Index
+> Fetch the complete documentation index at: https://bear2u.github.io/mac-mlx-study/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# 03 · 입력 처리와 답변 생성 측정하기
+
+**긴 문서를 넣으면 어느 구간이 길어질까?**
+
+Prefill은 입력 토큰을 처리해 첫 출력을 준비하는 구간입니다. Decode는 그 이후 토큰을 순차적으로 만드는 구간입니다. 두 구간은 따로 재야 긴 입력의 영향을 볼 수 있습니다.
+
+## 직접 해보기
+
+1과의 생성 명령에서 질문을 “위 내용을 한 문장으로 요약해줘”로 바꿉니다. 앞에 같은 문단을 한 번 붙인 조건과 열 번 붙인 조건을 만드세요. 출력 상한은 128로 고정하고 각 조건을 세 번 실행하세요.
+
+예를 들어 입력 400토큰을 초당 200토큰으로 처리했다면 입력 처리 시간은 약 2초입니다. 모델 로딩, 대기, 통신 시간은 이 계산에서 빠집니다.
+
+## 실험 노트
+
+각 조건에서 입력 토큰 수 ÷ Prompt 속도와 Generation 속도의 중앙값을 적으세요. 긴 입력이 두 지표에 같은 비율로 영향을 주었는지 확인합니다.
+
+[공식 참고 자료](https://github.com/ml-explore/mlx-lm)
+
+Source: https://bear2u.github.io/mac-mlx-study/lesson-03/index.mdx

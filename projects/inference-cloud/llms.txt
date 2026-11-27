@@ -1,0 +1,14 @@
+# 개인용 AI 추론 클라우드
+
+> 맥 스튜디오 한 대에서 사용자별로 요청을 받고 모델을 선택하는 추론 서비스를 만듭니다.
+
+## Pages
+
+- [개인용 AI 추론 클라우드](https://bear2u.github.io/mac-mlx-study/projects/inference-cloud/index.md) — 맥 스튜디오 한 대에서 사용자별로 요청을 받고 모델을 선택하는 추론 서비스를 만듭니다.
+- [01 · 실습 폴더와 서버 배치 준비](https://bear2u.github.io/mac-mlx-study/projects/inference-cloud/01-workspace/index.md) — 사용자 요청이 게이트웨이와 모델 서버를 거쳐 돌아오는 경로를 설계합니다.
+- [02 · 예측 가능한 모델 응답 만들기](https://bear2u.github.io/mac-mlx-study/projects/inference-cloud/02-engine/index.md) — 매번 똑같은 답과 사용량을 내는 서버로 스트리밍 규약을 익힙니다.
+- [03 · API 키 발급과 사용 기록 저장소](https://bear2u.github.io/mac-mlx-study/projects/inference-cloud/03-keys/index.md) — 원본 키를 한 번만 발급하고 사용자별 요청을 기록합니다.
+- [04 · 동시 실행 한도와 대기열 구현](https://bear2u.github.io/mac-mlx-study/projects/inference-cloud/04-queue/index.md) — 한 요청을 실행하고 두 요청까지 기다리게 합니다.
+- [05 · 모델 선택과 스트리밍 중계 연결](https://bear2u.github.io/mac-mlx-study/projects/inference-cloud/05-gateway/index.md) — 키와 모델을 확인한 뒤 선택한 엔진으로 요청을 보냅니다.
+- [06 · 두 사용자로 정상·혼잡·취소 검사](https://bear2u.github.io/mac-mlx-study/projects/inference-cloud/06-acceptance/index.md) — 대기열과 계정별 사용량을 모델 다운로드 전에 검증합니다.
+- [07 · 실제 MLX 모델 연결과 최종 인수 실험](https://bear2u.github.io/mac-mlx-study/projects/inference-cloud/07-real-models/index.md) — 시험 서버를 로컬 LLM 두 개로 교체하고 실제 사용량을 확인합니다.

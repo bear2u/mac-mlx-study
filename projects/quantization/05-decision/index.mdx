@@ -1,0 +1,36 @@
+---
+title: "05 · 결과표에서 사용할 모델 선택하기"
+description: "반복 측정은 속도 변동을 추정하는 데 쓰고, 품질 점수는 서로 다른 문제 수로 계산합니다."
+---
+
+반복 측정은 속도 변동을 추정하는 데 쓰고, 품질 점수는 서로 다른 문제 수로 계산합니다.
+
+## 결과 요약
+
+실습 폴더에 `report.py`로 저장한 뒤 `python report.py`를 실행하세요. q2 또는 q3를 앞 단계에서 추가로 평가했다면 같은 표에 자동으로 포함됩니다.
+
+```python
+from pathlib import Path
+from statistics import median
+import json
+
+for file in sorted(Path("results").glob("*.jsonl")):
+    rows = [json.loads(s) for s in file.read_text().splitlines()]
+    first = [r for r in rows if r["repeat"] == 0]
+    print(file.stem, f"정답 {sum(r['correct'] for r in first)}/{len(first)}",
+          f"생성 {median(r['output_tps'] for r in rows):.2f} tok/s",
+          f"MLX 최대 {max(r['peak_gb'] for r in rows):.3f} GB")
+    for row in first:
+        if not row["correct"]:
+            print(" ", row["id"], repr(row["answer"]))
+```
+
+## 선택 근거 쓰기
+
+1. 2단계에서 측정한 가중치 파일 MB를 결과표에 붙입니다. “내 맥에서 최대 메모리 ___GB 이하, 여섯 문제 중 ___개 이상 정답”처럼 허용 범위를 결과 해석 전에 적으세요.
+2. 실제 오답을 다시 읽어 계산 오류, 발췌 오류, 출력 형식 오류로 나눕니다. 원본도 틀린 문제와 낮은 정밀도에서 처음 틀린 문제를 구별합니다.
+3. 기준을 만족하는 모델 중 하나를 골라 크기·품질·속도의 수치를 근거로 문장 하나를 씁니다. 기준을 만족한 모델이 없으면 그 결과와 다음에 바꿀 조건을 적습니다.
+
+**완료 확인** · 다른 사람이 같은 커밋과 질문으로 다시 실행할 수 있게 source.json, requirements-lock.txt, cases.jsonl, evaluate.py, report.py와 results를 함께 보관하세요. 폴더 경로가 다른 맥에서는 동일한 revision을 다시 내려받고 source.json의 path를 새 경로로 갱신합니다.
+
+**막힐 때** · 세 모델의 점수가 같으면 질문 수와 난이도를 늘려 재측정하세요. 속도 차이가 작으면 해당 절대값과 측정 편차를 그대로 보고하세요. [MLX-LM 프로젝트](https://github.com/ml-explore/mlx-lm)

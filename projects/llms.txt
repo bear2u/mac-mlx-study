@@ -1,0 +1,16 @@
+# 프로젝트 실습
+
+> 맥에서 직접 만드는 여섯 가지 AI 추론 프로젝트
+
+## Pages
+
+- [프로젝트 실습](https://bear2u.github.io/mac-mlx-study/projects/index.md) — 맥에서 직접 만드는 여섯 가지 AI 추론 프로젝트
+
+## Sections
+
+- [로컬 AI 벤치마크 플랫폼](https://bear2u.github.io/mac-mlx-study/projects/benchmark/llms.txt)
+- [AI 모델 양자화 실험실](https://bear2u.github.io/mac-mlx-study/projects/quantization/llms.txt)
+- [개인용 AI 추론 클라우드](https://bear2u.github.io/mac-mlx-study/projects/inference-cloud/llms.txt)
+- [KV Cache 최적화 엔진](https://bear2u.github.io/mac-mlx-study/projects/kv-cache/llms.txt)
+- [Metal GPU 커널 최적화](https://bear2u.github.io/mac-mlx-study/projects/metal-kernels/llms.txt)
+- [여러 맥을 연결한 분산 AI 서버](https://bear2u.github.io/mac-mlx-study/projects/distributed-macs/llms.txt)

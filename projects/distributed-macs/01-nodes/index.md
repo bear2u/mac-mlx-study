@@ -1,0 +1,51 @@
+---
+title: "01 · 두 맥의 실습 환경 맞추기"
+---
+
+> Documentation Index
+> Fetch the complete documentation index at: https://bear2u.github.io/mac-mlx-study/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# 01 · 두 맥의 실습 환경 맞추기
+
+**구성** · 맥 스튜디오(A)는 클라이언트·라우터·첫 추론 서버를, 맥북(B)은 두 번째 추론 서버를 맡습니다. 먼저 각 맥에 같은 모델을 하나씩 올려 요청을 나눕니다. 마지막 단계에서 두 장비가 한 모델의 텐서를 나눠 계산합니다.
+
+## 1. 두 맥에서 같은 위치에 설치하기
+
+각 맥의 터미널에서 다음을 실행합니다. 이 예제에서는 두 장비의 Python 버전과 패키지 버전을 같게 맞춥니다. 동일한 절대 경로를 사용하면 마지막 단계에서 분산 런처가 같은 명령을 양쪽에서 실행할 수 있습니다.
+
+```sh
+mkdir -p /Users/Shared/mac-inference-lab
+cd /Users/Shared/mac-inference-lab
+python3 -m venv venv
+source venv/bin/activate
+python -m pip install mlx-lm httpx fastapi uvicorn
+python -m pip freeze > versions.txt
+python -c 'import importlib.metadata as m; print(m.version("mlx"), m.version("mlx-lm"))'
+scutil --get LocalHostName
+```
+
+두 맥에 표시된 컴퓨터 이름을 적어 둡니다. 첫 결과와 버전이 다르면 B에서 A의 `versions.txt`를 복사해 `python -m pip install -r versions.txt`로 맞춥니다. 새 터미널마다 위의 cd와 source 두 줄을 다시 실행합니다.
+
+## 2. 모델과 네트워크를 점검하기
+
+아래를 두 맥에서 실행합니다. 작은 모델로 시작하면 한 대에서 먼저 정답과 성능을 확인할 수 있습니다. 최초 실행은 모델 다운로드 시간을 포함합니다.
+
+```sh
+export MODEL=mlx-community/Qwen3-0.6B-4bit
+mlx_lm.generate --model "$MODEL" --prompt "2 더하기 3은?" --max-tokens 32
+```
+
+두 장비의 시스템 설정 → 일반 → 공유에서 **원격 로그인**을 실습 계정에 허용합니다. A에서 본인의 두 장비에 SSH 키 인증이 되도록 설정하고 아래의 예시 사용자명·호스트명을 실제 값으로 바꿉니다. 처음 연결할 때 장비의 호스트 키를 확인합니다. 2단계에서는 B 접속만, 마지막 분산 단계에서는 A 자체 접속도 필요합니다.
+
+```sh
+export STUDIO_SSH='내계정@내스튜디오.local'
+export BOOK_SSH='내계정@내맥북.local'
+ssh "$BOOK_SSH" hostname
+ssh -o BatchMode=yes "$BOOK_SSH" hostname
+ssh -o BatchMode=yes "$STUDIO_SSH" hostname
+```
+
+두 BatchMode 명령이 암호 입력 없이 올바른 장비 이름을 출력하면 준비가 끝납니다. 원격 로그인이나 두 번째 맥을 사용할 수 없는 동안에는 2단계의 두 서버를 A의 서로 다른 포트에서 구동해 3~4단계 라우터 동작부터 연습할 수 있습니다. 그 결과를 두 장비 측정과 구분해 기록하세요. [MLX 분산 실행 준비](https://github.com/ml-explore/mlx/blob/main/docs/src/usage/launching_distributed.rst)
+
+Source: https://bear2u.github.io/mac-mlx-study/projects/distributed-macs/01-nodes/index.mdx

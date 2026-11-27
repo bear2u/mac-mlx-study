@@ -1,0 +1,33 @@
+---
+title: "KV Cache 최적화 엔진"
+description: "같은 문서로 여러 번 질문할 때 공통 앞부분의 계산을 재사용해 첫 토큰 시간을 줄입니다."
+---
+
+> Documentation Index
+> Fetch the complete documentation index at: https://bear2u.github.io/mac-mlx-study/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# KV Cache 최적화 엔진
+
+**난이도 ★★★★☆** · 연계 강의 [6강](https://bear2u.github.io/mac-mlx-study/lesson-06/) · [7강](https://bear2u.github.io/mac-mlx-study/lesson-07/) · [8강](https://bear2u.github.io/mac-mlx-study/lesson-08/)
+
+같은 문서로 여러 번 질문할 때 공통 앞부분의 계산을 재사용해 첫 토큰 시간을 줄입니다.
+
+## 만들 결과물
+
+저장·조회·무효화가 가능한 프롬프트 캐시와 전후 측정표
+
+## 단계별 튜토리얼
+
+- [01 · 반복 질문과 고정 문서 준비하기](https://bear2u.github.io/mac-mlx-study/projects/kv-cache/01-setup/)
+- [02 · 캐시 없이 첫 토큰 시간 재기](https://bear2u.github.io/mac-mlx-study/projects/kv-cache/02-baseline/)
+- [03 · 공통 토큰 경계 찾고 캐시 저장하기](https://bear2u.github.io/mac-mlx-study/projects/kv-cache/03-persist/)
+- [04 · 캐시 적중·무효화·복구 구현하기](https://bear2u.github.io/mac-mlx-study/projects/kv-cache/04-reuse/)
+- [05 · 첫 토큰 시간과 손익분기점 검증하기](https://bear2u.github.io/mac-mlx-study/projects/kv-cache/05-experiment/)
+- [06 · 디스크 한도와 오래된 캐시 정리하기](https://bear2u.github.io/mac-mlx-study/projects/kv-cache/06-eviction/)
+
+## 완료 기준
+
+같은 문서의 두 번째 질문에서 적중을 확인하고, 문서를 바꾼 질문에서는 새 문서의 사실에 맞게 응답하는지 검증합니다.
+
+Source: https://bear2u.github.io/mac-mlx-study/projects/kv-cache/index.mdx

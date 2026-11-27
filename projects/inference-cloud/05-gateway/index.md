@@ -1,0 +1,138 @@
+---
+title: "05 · 모델 선택과 스트리밍 중계 연결"
+description: "키와 모델을 확인한 뒤 선택한 엔진으로 요청을 보냅니다."
+---
+
+> Documentation Index
+> Fetch the complete documentation index at: https://bear2u.github.io/mac-mlx-study/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# 05 · 모델 선택과 스트리밍 중계 연결
+
+이제 앞의 세 파일을 연결합니다. 클라이언트는 `fast` 또는 `deep`이라는 별칭만 알면 됩니다. 사용량은 실제 엔진이 보내는 usage 이벤트에서 가져오고, 응답이 중간에 끊기면 다음 사람이 GPU를 쓸 수 있게 자리를 돌려줍니다.
+
+## engine.env 저장하기
+
+```sh
+export MODEL_SMALL="mlx-community/Qwen2.5-1.5B-Instruct-4bit"
+export MODEL_LARGE="mlx-community/Qwen2.5-3B-Instruct-4bit"
+```
+
+## app.py 저장하기
+
+```python
+import asyncio
+import json
+import os
+from uuid import uuid4
+
+import httpx
+from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+
+import store
+from gate import Full, Gate
+
+store.initialize()
+app = FastAPI()
+gate = Gate()
+engines = {
+    "fast": ("http://127.0.0.1:8091", os.environ["MODEL_SMALL"]),
+    "deep": ("http://127.0.0.1:8092", os.environ["MODEL_LARGE"]),
+}
+
+
+def owner(authorization: str = Header(default="")):
+    scheme, _, token = authorization.partition(" ")
+    user = store.lookup(token) if scheme.lower() == "bearer" else None
+    if not user:
+        raise HTTPException(401, "API 키를 확인하세요")
+    return user
+
+
+class Chat(BaseModel):
+    model: str
+    prompt: str = Field(min_length=1, max_length=8000)
+    max_tokens: int = Field(default=64, ge=1, le=512)
+
+
+@app.get("/models")
+def models(user: str = Depends(owner)):
+    return list(engines)
+
+
+@app.get("/usage")
+def usage(user: str = Depends(owner)):
+    return store.history(user)
+
+
+@app.post("/chat")
+async def chat(body: Chat, user: str = Depends(owner)):
+    if body.model not in engines:
+        raise HTTPException(404, "등록되지 않은 모델")
+    try:
+        wait = await gate.enter()
+    except Full:
+        raise HTTPException(429, "대기열이 가득 찼습니다")
+    except asyncio.TimeoutError:
+        raise HTTPException(503, "대기 시간이 초과되었습니다")
+    url, model = engines[body.model]
+    request_id = uuid4().hex
+    payload = dict(model=model, messages=[dict(role="user", content=body.prompt)],
+                   stream=True, stream_options={"include_usage": True},
+                   max_tokens=body.max_tokens)
+    state = "cancelled"
+    counts = {}
+
+    async def events():
+        nonlocal state, counts
+        try:
+            async with httpx.AsyncClient(timeout=120) as client:
+                async with client.stream("POST", url + "/v1/chat/completions",
+                                         json=payload) as upstream:
+                    upstream.raise_for_status()
+                    async for line in upstream.aiter_lines():
+                        if not line.startswith("data:"):
+                            continue
+                        data = line[5:].strip()
+                        if data == "[DONE]":
+                            state = "done"
+                            yield "data: [DONE]\n\n"
+                            return
+                        event = json.loads(data)
+                        if event.get("usage"):
+                            counts = event["usage"]
+                        yield f"data: {data}\n\n"
+            raise ValueError("incomplete stream")
+        except (httpx.HTTPError, ValueError):
+            state = "failed"
+            yield 'event: error\ndata: {"error":"engine_stream_failed"}\n\n'
+
+    class AuditedStream(StreamingResponse):
+        async def __call__(self, scope, receive, send):
+            try:
+                await super().__call__(scope, receive, send)
+            finally:
+                gate.leave()
+                store.record((request_id, user, body.model, state, wait,
+                              counts.get("prompt_tokens"), counts.get("completion_tokens")))
+
+    return AuditedStream(events(), media_type="text/event-stream",
+                         headers={"X-Request-ID": request_id})
+```
+
+## 터미널 C에서 게이트웨이 시작
+
+```sh
+cd ~/mac-inference-lab/cloud
+source .venv/bin/activate
+source engine.env
+python -m uvicorn app:app --host 127.0.0.1 --port 8090 --workers 1
+```
+
+터미널 B에서 `curl -sS -H "Authorization: Bearer $ALICE" http://127.0.0.1:8090/models`를 실행하면 두 별칭이 보입니다. 이 단계에서는 fast에 연습용 엔진만 연결되어 있습니다. deep 엔진은 7단계에서 시작합니다.
+
+HTTP 응답이 일단 시작된 뒤 발생한 모델 오류는 스트림 안의 error 이벤트로 전달됩니다. HTTP 상태와 스트림의 종료 상태를 각각 확인하세요. [HTTPX 비동기 스트리밍](https://www.python-httpx.org/async/) · [FastAPI 스트리밍 응답](https://fastapi.tiangolo.com/advanced/custom-response/)
+
+Source: https://bear2u.github.io/mac-mlx-study/projects/inference-cloud/05-gateway/index.mdx

@@ -1,0 +1,58 @@
+---
+title: "05 · 세 엔진 실행과 원시 결과 검산"
+---
+
+**목표**는 엔진마다 두 동시성 조건을 세 번씩 측정해 총 18개의 결과 행을 얻는 것입니다. 한 줄에 요청 네 건의 원시 데이터도 보관됩니다. 저장 파일의 시간은 UTC입니다.
+
+## 한 엔진씩 실행
+
+측정용 터미널에서 다음 중 **현재 켜져 있는 서버에 해당하는 한 줄만** 실행합니다. 끝나면 2단계로 돌아가 서버를 교체한 뒤 다음 줄을 실행합니다. 모델이 이미 로드되고 준비 상태가 확인된 시점부터 측정하세요.
+
+```sh
+python run.py mlx mlx-community/Qwen2.5-7B-Instruct-4bit
+```
+
+```sh
+python run.py llama qwen-lab
+```
+
+```sh
+python run.py vllm-metal mlx-community/Qwen2.5-7B-Instruct-4bit
+```
+
+첫 시험이 끝나면 `ls results`와 `wc -l results/*.jsonl`을 실행하세요. 엔진별 파일 한 개, 파일당 여섯 줄이면 한 회차가 끝난 것입니다. 중단된 회차는 파일에 일부 행이 남습니다. 재실행은 새 파일을 만듭니다.
+
+## 숫자 대조
+
+다음 블록은 파일마다 질문 수, 표본 수, 처리량 공식, TTFT 범위를 확인합니다. 응답 일부도 출력해 질문과 답이 연결됐는지 살펴볼 수 있습니다.
+
+```sh
+python - <<'PY'
+import json
+from collections import Counter
+from pathlib import Path
+
+for path in sorted(Path("results").glob("*.jsonl")):
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    counts = Counter(r["concurrency"] for r in rows)
+    print(path.name, dict(counts))
+    if counts != {1: 3, 4: 3}:
+        print("미완료 회차")
+        continue
+    for r in rows:
+        requests = r["requests"]
+        assert len(requests) == 4
+        assert all(1 <= q["output_tokens"] <= 64 for q in requests)
+        assert all(q["ttft_ms"] <= q["total_s"] * 1000 + 1 for q in requests)
+        assert abs(sum(q["output_tokens"] for q in requests)
+                   / r["wall_s"] - r["tokens_s"]) < 0.001
+    print(rows[0]["requests"][0]["answer"][:100])
+PY
+```
+
+## 결과를 해석하는 순서
+
+1. 요청별 입력 토큰 수를 비교합니다. 같은 문장을 넣어도 엔진이 적용한 채팅 템플릿에 따라 토큰 수가 달라질 수 있습니다.
+2. 각 엔진 내에서 동시성 1과 4를 먼저 비교합니다. 처리량이 올랐을 때 첫 글자 시간도 늘었는지 살펴보세요.
+3. 한 회차에서 반복 번호가 올라갈수록 빨라지는지 봅니다. 자동 프롬프트 캐시나 준비 실행의 영향을 가정하고 새 서버 프로세스로 같은 실험을 반복하세요.
+4. 결과표에 하드웨어, 패키지 버전, 입력 해시, 모델 변환 방식, 로그 파일명을 함께 남깁니다. 실제 메모리 경합이나 응답 오류가 있었던 회차에는 그 상황을 기록합니다.

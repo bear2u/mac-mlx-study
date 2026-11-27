@@ -1,0 +1,86 @@
+---
+title: "06 · 웹 대시보드로 결과 비교하기"
+---
+
+> Documentation Index
+> Fetch the complete documentation index at: https://bear2u.github.io/mac-mlx-study/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# 06 · 웹 대시보드로 결과 비교하기
+
+**완성할 화면**은 엔진과 측정 회차를 고르면 첫 글자 시간, 전체 출력 처리량, 메모리 사용량을 보여 주는 대시보드입니다. 5단계가 끝난 `results/` 폴더를 그대로 읽습니다.
+
+## 화면 만들기
+
+측정용 터미널에서 같은 가상환경을 활성화한 뒤 `python -m pip install streamlit pandas`를 실행합니다. 실습 폴더의 `dashboard.py`에 다음 내용을 저장하세요.
+
+```python
+import json
+from pathlib import Path
+import pandas as pd
+import streamlit as st
+
+st.set_page_config(page_title="내 맥 추론 벤치마크", layout="wide")
+st.title("내 맥 추론 벤치마크")
+selected = []
+for path in sorted(Path("results").glob("*.jsonl")):
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    trials = {(r["trial"], r["concurrency"]) for r in rows}
+    if len(rows) == 6 and trials == {(t, c) for t in (1, 2, 3) for c in (1, 4)}:
+        selected.extend(rows)
+    else:
+        st.caption(f"미완료 회차 제외 · {path.name}")
+
+if not selected:
+    st.info("5단계를 마친 측정 파일을 results 폴더에 넣으세요.")
+    st.stop()
+data = pd.DataFrame(selected)
+engines = st.multiselect("비교할 엔진", sorted(data.engine.unique()),
+                         default=sorted(data.engine.unique()))
+chosen = []
+for engine in engines:
+    part = data[data.engine == engine]
+    runs = sorted(part.run.unique(), reverse=True)
+    run = st.selectbox(f"{engine} 측정 회차 (UTC)", runs)
+    chosen.append(part[part.run == run])
+if not chosen:
+    st.stop()
+shown = pd.concat(chosen)
+summary = (shown.groupby(["engine", "concurrency"])[
+    ["ttft_ms", "tokens_s", "peak_tree_mib"]].median().reset_index())
+
+st.subheader("조건별 중앙값")
+st.dataframe(summary, hide_index=True)
+st.caption("ttft_ms · 첫 글자까지 ms / tokens_s · 전체 출력 토큰/초 / peak_tree_mib · 표본 최대 RSS 합계의 중앙값(MiB)")
+st.subheader("동시 요청 수에 따른 출력 처리량")
+chart = summary.pivot(index="concurrency", columns="engine", values="tokens_s")
+chart.index = chart.index.map(lambda c: f"동시 {c}개")
+st.bar_chart(chart)
+st.subheader("실험 조건과 개별 응답")
+for row in shown.to_dict("records"):
+    label = f"{row['engine']} · 동시 {row['concurrency']}개 · 반복 {row['trial']}"
+    with st.expander(label):
+        st.write("모델", row["model"], "질문 SHA-256", row["prompts_sha256"])
+        st.dataframe(pd.DataFrame(row["requests"]), hide_index=True)
+st.download_button("요약 CSV 저장", summary.to_csv(index=False).encode("utf-8-sig"),
+                   file_name="benchmark-summary.csv", mime="text/csv")
+```
+
+## 브라우저에서 확인
+
+```sh
+python -m streamlit run dashboard.py --server.address 127.0.0.1 --server.port 8501
+```
+
+브라우저에서 [내 맥의 대시보드](http://127.0.0.1:8501)를 엽니다. 각 엔진의 **완료한 한 회차**를 선택하면 비교표에 조건별로 한 행씩 생깁니다. 엔진 세 개를 고르면 여섯 행입니다. 같은 행의 원본 요청을 펼쳐 TTFT 중앙값과 출력 길이를 대조하세요.
+
+## 결과물 제출과 재현
+
+1. 대시보드에서 초당 출력 토큰이 가장 높았던 조건과 첫 글자가 가장 빨랐던 조건을 각각 적습니다. 같은 엔진인지 확인합니다.
+2. 사용자 한 명의 대화와 네 명의 동시 대화에 각각 어떤 설정을 고를지 측정값을 근거로 씁니다. 남은 변환 형식·캐시 차이도 한 줄로 남깁니다.
+3. 질문 파일, `environment.txt`, 패키지 버전, 서버 시작 명령, 세 측정 스크립트와 대시보드, 원본 JSONL, 내려받은 요약 CSV를 같은 작업 폴더에 보관합니다.
+4. 나중에 새 회차를 수행한 뒤 대시보드를 새로고침합니다. 동일한 엔진의 기존 회차와 새 회차를 번갈아 선택해 실험을 재현할 수 있으면 완료입니다.
+
+화면이 비어 있으면 Streamlit을 실행한 폴더와 results의 상대 위치부터 확인합니다. 미완료 회차만 있다면 5단계의 검산 결과에서 빠진 동시성 조건을 확인하세요. [Streamlit 실행 가이드](https://docs.streamlit.io/get-started/fundamentals/main-concepts)
+
+Source: https://bear2u.github.io/mac-mlx-study/projects/benchmark/06-dashboard/index.mdx

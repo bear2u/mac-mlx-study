@@ -1,0 +1,90 @@
+---
+title: "03 · 스트림에서 첫 글자와 토큰 수 기록하기"
+---
+
+**목표**는 나중에 여러 번 재사용할 요청 함수 하나를 만드는 것입니다. 측정용 터미널을 열고 작업 폴더로 들어갑니다.
+
+```sh
+cd ~/mac-inference-lab/benchmark
+source .venv/bin/activate
+```
+
+## 요청 함수 작성
+
+아래 내용을 `client.py`로 저장합니다. SSE는 서버가 응답 중간에 보내는 이벤트입니다. 첫 이벤트에 역할만 들어올 수 있어 실제 본문이 처음 나타난 시간을 따로 찾습니다. 이벤트 하나에 여러 토큰이 들어올 수 있으므로 토큰 수는 마지막 사용량 이벤트에서 읽습니다.
+
+```python
+import json
+import sys
+from time import perf_counter
+from urllib.request import Request, urlopen
+
+URL = "http://127.0.0.1:8091/v1/chat/completions"
+
+def measure(model, prompt):
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0, "max_tokens": 64, "stream": True,
+        "stream_options": {"include_usage": True},
+    }
+    request = Request(URL, data=json.dumps(payload).encode(),
+                      headers={"Content-Type": "application/json"})
+    first = None
+    usage = {}
+    finished = False
+    pieces = []
+    start = perf_counter()
+    with urlopen(request, timeout=180) as response:
+        for line in response:
+            if not line.startswith(b"data:"):
+                continue
+            data = line[5:].strip()
+            if data == b"[DONE]":
+                finished = True
+                break
+            event = json.loads(data)
+            if event.get("error"):
+                raise RuntimeError(str(event["error"]))
+            if event.get("usage"):
+                usage = event["usage"]
+            for choice in event.get("choices", []):
+                piece = choice.get("delta", {}).get("content")
+                if piece:
+                    if first is None:
+                        first = perf_counter()
+                    pieces.append(piece)
+    if not finished or first is None or "completion_tokens" not in usage:
+        raise ValueError("본문, [DONE], usage가 모두 도착했는지 스트림을 확인하세요.")
+    return {
+        "ttft_ms": round((first - start) * 1000, 1),
+        "total_s": round(perf_counter() - start, 4),
+        "input_tokens": usage["prompt_tokens"],
+        "output_tokens": usage["completion_tokens"],
+        "answer": "".join(pieces),
+    }
+
+if __name__ == "__main__":
+    print(json.dumps(measure(sys.argv[1], "통합 메모리를 설명해줘."),
+                     ensure_ascii=False, indent=2))
+```
+
+## 한 번 실행해 보기
+
+```sh
+python client.py mlx-community/Qwen2.5-7B-Instruct-4bit
+```
+
+llama.cpp에서는 마지막 인수를 `qwen-lab`으로 바꿉니다. 결과에서 answer를 먼저 읽으세요. 오류 메시지를 정상 답변으로 집계하면 빠른 서버처럼 보일 수 있습니다. 이어서 출력 토큰 수가 1~64이고 TTFT를 초로 바꾼 값이 전체 시간 이하인지 확인합니다.
+
+## usage가 비어 있을 때
+
+`curl -N`으로 실제 이벤트를 확인합니다. 아래 model을 실행한 서버의 ID로 맞추세요.
+
+```sh
+curl -sS -N http://127.0.0.1:8091/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"mlx-community/Qwen2.5-7B-Instruct-4bit","messages":[{"role":"user","content":"안녕"}],"max_tokens":8,"stream":true,"stream_options":{"include_usage":true}}'
+```
+
+선택지가 비어 있고 usage만 있는 마지막 JSON도 정상입니다. 서버 버전에서 사용량 이벤트를 제공하는지 확인한 후 진행하세요. 원시 이벤트 수를 토큰 수로 바꾸면 이번 실험의 처리량 지표가 달라집니다. [MLX-LM의 스트리밍 구현](https://github.com/ml-explore/mlx-lm/blob/main/mlx_lm/server.py)

@@ -1,0 +1,1 @@
+import{t as e}from"./url-param-O-Ivxm52.CpSvOf4J.js";import{h as t}from"./client.Co6QgfBe.js";e(`[data-search-trigger]`,e=>(t(e),()=>{}));

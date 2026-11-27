@@ -1,0 +1,42 @@
+---
+title: "01 · GPU 환경과 정답 함수 준비"
+---
+
+**만들 것** · 모든 커널이 통과해야 할 수치 기준과 실습 디렉터리입니다. Apple Silicon 맥에서 모델 다운로드 없이 진행합니다.
+
+## 1. 작업 환경 만들기
+
+터미널에서 아래를 실행합니다. 이후 모든 파일을 이 디렉터리에 저장합니다. 새 터미널을 열면 이곳에서 가상환경을 다시 활성화하세요.
+
+```sh
+mkdir -p ~/mac-inference-lab/metal
+cd ~/mac-inference-lab/metal
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install mlx
+python -m pip freeze > versions.txt
+python -c 'import mlx.core as mx; print(mx.default_device()); print(mx.metal.is_available())'
+```
+
+마지막 값이 True여야 합니다. 설치가 실패하면 `uname -m`이 arm64인지, 사용 중인 Python 버전과 macOS가 설치할 MLX 버전의 요구 조건에 맞는지 확인합니다.
+
+## 2. 손으로 확인할 예제 만들기
+
+RMSNorm은 한 행의 각 값을 그 행의 제곱평균의 제곱근으로 나누고, 열별 가중치를 곱합니다. 0으로 나누는 일을 피하려고 제곱평균에 작은 수를 더합니다. 다음을 `baseline.py`로 저장하세요.
+
+```python
+import mlx.core as mx
+
+EPS = 1e-6
+
+def reference(x, w):
+    scale = mx.rsqrt(mx.mean(x * x, axis=-1, keepdims=True) + EPS)
+    return x * scale * w
+
+if __name__ == "__main__":
+    x = mx.array([[3., 4.], [0., 0.]])
+    w = mx.array([1., 2.])
+    print(reference(x, w).tolist())
+```
+
+`python baseline.py`를 실행합니다. 첫 행의 제곱평균은 12.5이므로 결과는 약 0.8485, 2.2627입니다. 둘째 행은 두 값 모두 0입니다. 두 행을 독립적으로 정규화하는지 확인하고 다음 단계로 이동하세요. [MLX 빠른 시작](https://ml-explore.github.io/mlx/build/html/usage/quick_start.html)

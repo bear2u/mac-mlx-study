@@ -1,0 +1,13 @@
+# KV Cache 최적화 엔진
+
+> 같은 문서로 여러 번 질문할 때 공통 앞부분의 계산을 재사용해 첫 토큰 시간을 줄입니다.
+
+## Pages
+
+- [KV Cache 최적화 엔진](https://bear2u.github.io/mac-mlx-study/projects/kv-cache/index.md) — 같은 문서로 여러 번 질문할 때 공통 앞부분의 계산을 재사용해 첫 토큰 시간을 줄입니다.
+- [01 · 반복 질문과 고정 문서 준비하기](https://bear2u.github.io/mac-mlx-study/projects/kv-cache/01-setup/index.md) — 문서 한 벌에 질문만 바꿔 보내는 환경을 만듭니다. 같은 모델과 토크나이저를 다시 불러올 수 있도록 버전을 고정합니다.
+- [02 · 캐시 없이 첫 토큰 시간 재기](https://bear2u.github.io/mac-mlx-study/projects/kv-cache/02-baseline/index.md) — 문서와 질문 전체를 읽는 기준 실행을 만듭니다. 뒤에서 같은 입력 토큰으로 캐시 경로와 비교합니다.
+- [03 · 공통 토큰 경계 찾고 캐시 저장하기](https://bear2u.github.io/mac-mlx-study/projects/kv-cache/03-persist/index.md) — 두 질문이 공유하는 토큰열까지만 계산해 safetensors 파일로 저장합니다. 원본 접두부를 나중에 대조할 메타데이터도 함께 남깁니다.
+- [04 · 캐시 적중·무효화·복구 구현하기](https://bear2u.github.io/mac-mlx-study/projects/kv-cache/04-reuse/index.md) — 요청이 들어올 때 키와 토큰 경계를 확인하고, 캐시가 없으면 새로 만듭니다. 각 질문은 독립된 상태에서 시작합니다.
+- [05 · 첫 토큰 시간과 손익분기점 검증하기](https://bear2u.github.io/mac-mlx-study/projects/kv-cache/05-experiment/index.md) — 캐시를 만드는 선행 비용과 반복 요청에서 절약한 시간을 함께 계산하고, 토큰 출력도 비교합니다.
+- [06 · 디스크 한도와 오래된 캐시 정리하기](https://bear2u.github.io/mac-mlx-study/projects/kv-cache/06-eviction/index.md) — 최근 사용 시각을 갱신하고 한도를 넘으면 가장 오래 사용하지 않은 전용 캐시 파일부터 정리합니다.

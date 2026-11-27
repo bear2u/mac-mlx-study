@@ -1,0 +1,30 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "맥 AI 추론 실습실",
+    "identifier": "https://bear2u.github.io/mac-mlx-study/",
+    "documentationUrl": "https://bear2u.github.io/mac-mlx-study/"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:bear2u.github.io:docs-mac_2Dmlx_2Dstudy:index",
+      "displayName": "맥 AI 추론 실습실 documentation index",
+      "type": "text/plain",
+      "url": "https://bear2u.github.io/mac-mlx-study/llms.txt",
+      "representativeQueries": [
+        "Find the 맥 AI 추론 실습실 documentation",
+        "List topics covered by 맥 AI 추론 실습실"
+      ]
+    },
+    {
+      "identifier": "urn:air:bear2u.github.io:docs-mac_2Dmlx_2Dstudy:home",
+      "displayName": "맥 AI 추론 실습실 overview",
+      "type": "text/markdown",
+      "url": "https://bear2u.github.io/mac-mlx-study/index.md",
+      "representativeQueries": [
+        "Get started with 맥 AI 추론 실습실",
+        "Read an overview of 맥 AI 추론 실습실"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+# Metal GPU 커널 최적화
+
+> 기존 연산을 직접 쓴 GPU 커널로 바꿨을 때 정확도와 실행 시간이 어떻게 변하는지 실험합니다.
+
+## Pages
+
+- [Metal GPU 커널 최적화](https://bear2u.github.io/mac-mlx-study/projects/metal-kernels/index.md) — 기존 연산을 직접 쓴 GPU 커널로 바꿨을 때 정확도와 실행 시간이 어떻게 변하는지 실험합니다.
+- [01 · GPU 환경과 정답 함수 준비](https://bear2u.github.io/mac-mlx-study/projects/metal-kernels/01-baseline/index.md)
+- [02 · 행 하나를 맡는 Metal 커널 작성](https://bear2u.github.io/mac-mlx-study/projects/metal-kernels/02-first-kernel/index.md)
+- [03 · 여러 스레드로 한 행 나누기](https://bear2u.github.io/mac-mlx-study/projects/metal-kernels/03-parallel/index.md)
+- [04 · 실행 시간과 정확도를 같은 표에 기록](https://bear2u.github.io/mac-mlx-study/projects/metal-kernels/04-measure/index.md)
+- [05 · GPU 프로파일로 개선 효과 설명하기](https://bear2u.github.io/mac-mlx-study/projects/metal-kernels/05-profile/index.md)
+- [06 · 큰 입력에서도 안정적인 Softmax 작성](https://bear2u.github.io/mac-mlx-study/projects/metal-kernels/06-softmax/index.md)
+- [07 · 직사각형 행렬 곱을 Metal로 작성](https://bear2u.github.io/mac-mlx-study/projects/metal-kernels/07-matmul/index.md)
+- [08 · Causal Attention 조립과 정답 검증](https://bear2u.github.io/mac-mlx-study/projects/metal-kernels/08-attention/index.md)
