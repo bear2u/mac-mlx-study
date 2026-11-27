@@ -1,0 +1,67 @@
+---
+title: "05 · 첫 토큰 시간과 손익분기점 검증하기"
+description: "캐시를 만드는 선행 비용과 반복 요청에서 절약한 시간을 함께 계산하고, 토큰 출력도 비교합니다."
+sidebar:
+  order: 5
+---
+
+캐시를 만드는 선행 비용과 반복 요청에서 절약한 시간을 함께 계산하고, 토큰 출력도 비교합니다.
+
+## 같은 모델 프로세스 안에서 교차 측정
+
+`measure.py`로 저장하고 `python measure.py`를 실행하세요. 두 경로 모두 문서와 질문 문자열을 받는 순간부터 첫 토큰까지 잽니다. 캐시 경로에는 키 계산과 디스크에서 읽는 시간도 포함합니다. 템플릿 적용과 키 계산은 이 작은 실험에서 실제 요청마다 발생하는 비용입니다.
+
+```python
+from statistics import median
+from time import perf_counter
+from math import ceil
+import json
+from pathlib import Path
+from mlx_lm import load
+from common import inputs, answer, spec
+from store import prefix_for, location, build
+from serve_one import request
+
+model, tok = load(spec["path"])
+doc = Path("document.txt").read_text()
+q = "1번 서랍의 종이 색은?"
+start = perf_counter()
+prefix = prefix_for(tok, doc)
+path = location(prefix)
+build(model, prefix, path)
+build_s = perf_counter() - start
+
+def timed(mode):
+    if mode == "hit":
+        status, r = request(model, tok, doc, q)
+        assert status == "적중", status
+    else:
+        r = answer(model, tok, inputs(tok, doc, q))
+    return r
+
+timed("full")
+timed("hit")
+rows = []
+for i in range(6):
+    outputs = {}
+    for mode in (("full","hit") if i % 2 == 0 else ("hit","full")):
+        start = perf_counter()
+        result = timed(mode)
+        rows.append(dict(repeat=i, mode=mode, ttft=result["first_at"] - start))
+        outputs[mode] = result["tokens"]
+    if outputs["full"] != outputs["hit"]:
+        print("출력 토큰 차이", i, outputs)
+Path("results/times.json").write_text(json.dumps(rows, indent=2))
+times = {m: median(x["ttft"] for x in rows if x["mode"] == m) for m in ("full","hit")}
+saving = times["full"] - times["hit"]
+print(times, "캐시 생성 초", build_s, "파일 MB", path.stat().st_size / 1e6)
+print("생성비용 회수 요청 수", ceil(build_s / saving) if saving > 0 else "이 조건에서는 회수되지 않음")
+```
+
+## 결과 읽기
+
+동일한 토큰열에서도 부동소수점 연산 순서 차이가 근접한 후보의 순위를 바꿀 수 있습니다. 출력이 달라지면 **먼저** 전체 입력 ID와 캐시 접두부+남은 ID가 같은지, 모델 revision이 같은지, 각 요청이 새 캐시 객체를 읽었는지 점검하세요. 이후 내용 차이까지 사람이 검토합니다.
+
+**완료 확인** · 보고서에 문서 토큰 수, 캐시 파일 MB, 최초 생성 시간, 두 TTFT 중앙값, 출력 일치 여부, 손익분기 요청 수를 적으세요. 짧은 문서에서 손해가 나면 길이를 늘려 다시 측정하고 두 결과를 모두 남깁니다.
+
+**보관과 정리** · 이 튜토리얼은 단일 사용자 파일 캐시입니다. 결과를 기록한 후 더 쓰지 않는 리비전이나 문서의 캐시만 골라 실습용 cache 폴더에서 제거하세요. 삭제된 키로 다시 요청하면 4단계 로직이 파일을 재생성합니다. [MLX-LM 프롬프트 캐싱](https://github.com/ml-explore/mlx-lm#long-prompts-and-generations)

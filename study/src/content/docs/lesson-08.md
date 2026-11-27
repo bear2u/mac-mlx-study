@@ -1,0 +1,49 @@
+---
+title: "08 · 로컬 스트리밍 API와 첫 토큰"
+description: "사용자가 실제로 느끼는 대기 시간은 얼마일까?"
+sidebar:
+  order: 8
+---
+
+**사용자가 실제로 느끼는 대기 시간은 얼마일까?**
+
+TTFT는 요청 전송부터 첫 내용 토큰 수신까지 걸린 시간입니다. 연결이 열리거나 역할 정보만 담긴 첫 이벤트가 도착한 시점과 구별합니다.
+
+## 직접 해보기
+
+터미널 하나에서 서버를 실행합니다.
+
+```sh
+mlx_lm.server --model "$MODEL" --host 127.0.0.1 --port 8080
+```
+
+다른 터미널에서 1과의 실습 폴더와 가상환경에 들어간 뒤 다음 코드를 client.py로 저장하고 python client.py를 실행하세요.
+
+```python
+import json
+from time import perf_counter
+from urllib.request import Request, urlopen
+import os
+
+body = dict(model=os.environ["MODEL"], stream=True, max_tokens=64,
+            messages=[dict(role="user", content="통합 메모리를 설명해줘.")])
+req = Request("http://127.0.0.1:8080/v1/chat/completions",
+              data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
+start = perf_counter()
+first = True
+with urlopen(req, timeout=180) as response:
+    for line in response:
+        if not line.startswith(b"data: ") or line.strip() == b"data: [DONE]":
+            continue
+        choices = json.loads(line[6:]).get("choices", [])
+        if choices and choices[0]["delta"].get("content") and first:
+            print("TTFT", round(perf_counter() - start, 3))
+            first = False
+print("전체 시간", round(perf_counter() - start, 3))
+```
+
+## 실험 노트
+
+첫 요청과 후속 세 요청의 TTFT, 전체 시간을 기록합니다. 답변이 길어질 때 주로 변하는 지표를 확인하세요.
+
+[공식 참고 자료](https://github.com/ml-explore/mlx-lm)

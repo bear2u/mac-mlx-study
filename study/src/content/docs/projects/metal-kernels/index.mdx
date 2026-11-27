@@ -1,0 +1,29 @@
+---
+title: "Metal GPU 커널 최적화"
+description: "기존 연산을 직접 쓴 GPU 커널로 바꿨을 때 정확도와 실행 시간이 어떻게 변하는지 실험합니다."
+sidebar:
+  order: 5
+---
+
+**난이도 ★★★★★** · 연계 강의 [10강](/lesson-10/) · [11강](/lesson-11/)
+
+기존 연산을 직접 쓴 GPU 커널로 바꿨을 때 정확도와 실행 시간이 어떻게 변하는지 실험합니다.
+
+## 만들 결과물
+
+직접 작성한 Metal 커널과 기존 MLX 연산의 비교 보고서
+
+## 단계별 튜토리얼
+
+- [01 · GPU 환경과 정답 함수 준비](/projects/metal-kernels/01-baseline/)
+- [02 · 행 하나를 맡는 Metal 커널 작성](/projects/metal-kernels/02-first-kernel/)
+- [03 · 여러 스레드로 한 행 나누기](/projects/metal-kernels/03-parallel/)
+- [04 · 실행 시간과 정확도를 같은 표에 기록](/projects/metal-kernels/04-measure/)
+- [05 · GPU 프로파일로 개선 효과 설명하기](/projects/metal-kernels/05-profile/)
+- [06 · 큰 입력에서도 안정적인 Softmax 작성](/projects/metal-kernels/06-softmax/)
+- [07 · 직사각형 행렬 곱을 Metal로 작성](/projects/metal-kernels/07-matmul/)
+- [08 · Causal Attention 조립과 정답 검증](/projects/metal-kernels/08-attention/)
+
+## 완료 기준
+
+커널 소스, 기준 함수, 오차 검사, 재현 가능한 측정 명령을 남깁니다. 어떤 입력 크기에서 이득이 생기거나 사라지는지 표로 설명합니다.

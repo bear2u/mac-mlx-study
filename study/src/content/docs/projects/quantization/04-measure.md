@@ -1,0 +1,63 @@
+---
+title: "04 · 같은 조건으로 품질과 속도 재기"
+description: "모델마다 새 프로세스를 띄워 원본, 4비트, 8비트 모델의 답변과 자원 사용량을 JSONL에 남깁니다."
+sidebar:
+  order: 4
+---
+
+모델마다 새 프로세스를 띄워 원본, 4비트, 8비트 모델의 답변과 자원 사용량을 JSONL에 남깁니다.
+
+## 평가기 작성
+
+실습 폴더에 아래 내용을 `evaluate.py`로 저장하세요. 매 요청에서 같은 채팅 템플릿과 탐욕적 선택(온도 0)을 사용합니다. 첫 요청은 준비 실행으로 빼고, 측정 시 입력 처리 속도와 출력 생성 속도를 분리합니다.
+
+```python
+import json
+import sys
+from pathlib import Path
+from mlx_lm import load, stream_generate
+from mlx_lm.sample_utils import make_sampler
+
+label = sys.argv[1]
+path = json.loads(Path("source.json").read_text())["path"] if label == "source" else f"models/{label}"
+model, tok = load(path)
+cases = [json.loads(line) for line in Path("cases.jsonl").read_text().splitlines()]
+sampler = make_sampler(temp=0.0)
+
+def run(question):
+    rendered = tok.apply_chat_template([{"role": "user", "content": question}],
+                                       tokenize=False, add_generation_prompt=True)
+    ids = tok.encode(rendered, add_special_tokens=False)
+    text = []
+    for last in stream_generate(model, tok, prompt=ids, sampler=sampler, max_tokens=32):
+        text.append(last.text)
+    return "".join(text).strip(), last
+
+run("한 단어만 출력해.")
+out = Path("results")
+out.mkdir(exist_ok=True)
+with (out / f"{label}.jsonl").open("w") as f:
+    for repeat in range(3):
+        for case in cases:
+            answer, metrics = run(case["prompt"])
+            record = dict(model=label, id=case["id"], repeat=repeat,
+                          answer=answer, correct=answer == case["answer"],
+                          input_tokens=metrics.prompt_tokens, output_tokens=metrics.generation_tokens,
+                          prompt_tps=metrics.prompt_tps, output_tps=metrics.generation_tps,
+                          peak_gb=metrics.peak_memory)
+            print(json.dumps(record, ensure_ascii=False), file=f)
+```
+
+## 차례로 실행
+
+```sh
+for model in source q4 q8; do
+  python evaluate.py "$model" || break
+done
+wc -l results/*.jsonl
+head -1 results/q4.jsonl
+```
+
+**확인** · 예제 여섯 문제를 그대로 사용했다면 파일당 18행입니다. peak_gb는 각 모델 프로세스에서 그 시점까지 관측한 MLX 최대 메모리입니다. 모델을 바꿀 때 프로세스를 새로 열어 이전 모델의 최대값이 섞이지 않게 했습니다.
+
+**막힐 때** · 출력이 모두 한 토큰이면 초당 생성량에 편차가 커질 수 있습니다. 입력과 출력 토큰 수도 보고서에 남기고, 긴 답변의 속도가 궁금하면 같은 길이의 별도 생성 과제를 세 모델에 추가하세요. [MLX-LM 생성 결과 필드](https://github.com/ml-explore/mlx-lm/blob/main/mlx_lm/generate.py)

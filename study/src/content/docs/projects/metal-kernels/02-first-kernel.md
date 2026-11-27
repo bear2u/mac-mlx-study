@@ -1,0 +1,56 @@
+---
+title: "02 · 행 하나를 맡는 Metal 커널 작성"
+sidebar:
+  order: 2
+---
+
+**준비** · 1단계의 `baseline.py`와 활성화한 가상환경. 먼저 한 스레드가 한 행 전체를 책임지게 만듭니다. 인덱스와 수식이 맞는지 확인할 수 있는 단순한 출발점입니다.
+
+## 1. 호스트 코드와 GPU 코드 연결하기
+
+아래를 `kernels.py`로 저장하세요. Python이 입력 배열과 스레드 수를 정하고, 따옴표 안의 Metal 코드가 각 GPU 스레드에서 실행됩니다. 실습 입력은 행 우선 2차원 float32 배열과 길이가 열 수와 같은 float32 가중치입니다.
+
+```python
+import mlx.core as mx
+
+serial_kernel = mx.fast.metal_kernel(
+    name="lab_rms_serial", input_names=["inp", "weight"], output_names=["out"],
+    source="""
+    uint row = thread_position_in_grid.x;
+    uint width = inp_shape[1];
+    uint start = row * width;
+    float squares = 0.0f;
+    for (uint col = 0; col < width; ++col) {
+        float value = inp[start + col];
+        squares += value * value;
+    }
+    float factor = metal::rsqrt(squares / float(width) + 1e-6f);
+    for (uint col = 0; col < width; ++col) {
+        out[start + col] = inp[start + col] * factor * weight[col];
+    }
+    """,
+)
+
+def serial(x, w):
+    rows, cols = x.shape
+    assert rows and cols and w.shape == (cols,)
+    return serial_kernel(inputs=[x, w], grid=(rows, 1, 1),
+                         threadgroup=(min(rows, 32), 1, 1),
+                         output_shapes=[x.shape], output_dtypes=[x.dtype])[0]
+```
+
+## 2. 작은 배열로 실행하기
+
+```sh
+python - <<'PYCODE'
+from baseline import mx, reference
+from kernels import serial
+x = mx.array([[3., 4.], [0., 0.]])
+w = mx.array([1., 2.])
+y = serial(x, w)
+print(y.tolist())
+assert mx.allclose(y, reference(x, w)).item()
+PYCODE
+```
+
+`inp_shape[1]`은 열 수이고 `row * width`는 행의 시작 위치입니다. 첫 행만 맞으면 행 오프셋을, 두 번째 열만 다르면 가중치 인덱스를 확인합니다. 컴파일 오류가 나면 변수명이 `input_names`, `output_names`와 같은지 확인하세요. [MLX 사용자 정의 Metal 커널](https://ml-explore.github.io/mlx/build/html/dev/custom_metal_kernels.html)

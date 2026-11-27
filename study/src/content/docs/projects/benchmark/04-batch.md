@@ -1,0 +1,102 @@
+---
+title: "04 · 동시 요청과 메모리 측정기 구현하기"
+sidebar:
+  order: 4
+---
+
+**목표**는 같은 질문 네 개를 보내는 한 묶음의 소요 시간과 서버 메모리를 함께 재는 것입니다. 터미널에서 실제 서버의 `server.pid`가 최신인지 다시 확인합니다.
+
+## 프로세스 트리의 RSS 수집
+
+`memory.py`에 아래 코드를 저장합니다. macOS의 ps가 반환하는 RSS 단위는 KiB입니다. 부모 프로세스와 그 아래 워커들을 찾아 합산합니다. 워커가 따로 뜨는 vLLM은 부모 PID 하나만 재면 메모리가 작게 보일 수 있습니다.
+
+```python
+import subprocess
+
+def tree_mib(root):
+    listing = subprocess.check_output(
+        ["ps", "-axo", "pid=,ppid=,rss="], text=True)
+    children = {}
+    rss = {}
+    for line in listing.splitlines():
+        pid, parent, kib = map(int, line.split())
+        children.setdefault(parent, []).append(pid)
+        rss[pid] = kib
+    if root not in rss:
+        raise RuntimeError("서버 PID가 실행 중인지 확인하세요.")
+    stack = [root]
+    total = 0
+    while stack:
+        pid = stack.pop()
+        total += rss[pid]
+        stack.extend(children.get(pid, []))
+    return total / 1024
+```
+
+여러 프로세스가 공유하는 페이지가 중복 계산될 수 있습니다. 이 지표는 macOS가 보고한 **프로세스 트리의 RSS 합계**이며, GPU 할당량 또는 시스템 전체 메모리와 구분해서 기록합니다. 짧은 피크가 표본 사이에 지나갈 수도 있습니다.
+
+## 부하 테스트 작성
+
+다음 코드를 같은 폴더의 `run.py`로 저장합니다. 요청 시작 전 워밍업 한 건은 결과 집계에서 뺍니다. 네 요청 중 하나라도 실패하면 해당 묶음은 파일에 쓰지 않고 오류를 표시합니다.
+
+```python
+import hashlib
+import json
+import sys
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
+from pathlib import Path
+from statistics import median
+from threading import Event
+from time import perf_counter
+from client import measure
+from memory import tree_mib
+
+engine, model = sys.argv[1:]
+source = Path("prompts.txt").read_bytes()
+prompts = source.decode().splitlines()
+assert len(prompts) == 4 and all(prompts)
+pid = int(Path("server.pid").read_text())
+stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+destination = Path("results") / f"{engine}-{stamp}.jsonl"
+
+def watch(stop):
+    peak = tree_mib(pid)
+    while not stop.wait(0.25):
+        peak = max(peak, tree_mib(pid))
+    return max(peak, tree_mib(pid))
+
+measure(model, "한 단어로 인사해줘.")
+with destination.open("x", encoding="utf-8") as out:
+    for trial in range(1, 4):
+        # 두 조건 중 먼저 실행되는 쪽을 번갈아 배치한다.
+        for concurrency in ((1, 4) if trial % 2 else (4, 1)):
+            stop = Event()
+            with ThreadPoolExecutor(max_workers=1) as monitor:
+                sample = monitor.submit(watch, stop)
+                start = perf_counter()
+                try:
+                    with ThreadPoolExecutor(max_workers=concurrency) as pool:
+                        jobs = [pool.submit(measure, model, p) for p in prompts]
+                        rows = [job.result() for job in jobs]
+                    elapsed = perf_counter() - start
+                finally:
+                    stop.set()
+                peak = sample.result()
+            row = {
+                "engine": engine, "model": model, "run": stamp,
+                "trial": trial, "concurrency": concurrency,
+                "prompts_sha256": hashlib.sha256(source).hexdigest(),
+                "requests": rows, "wall_s": elapsed,
+                "ttft_ms": median(r["ttft_ms"] for r in rows),
+                "tokens_s": sum(r["output_tokens"] for r in rows) / elapsed,
+                "peak_tree_mib": peak,
+            }
+            out.write(json.dumps(row, ensure_ascii=False) + "\n")
+            out.flush()
+            print(trial, concurrency, round(elapsed, 2), destination)
+```
+
+## 계산식 검산
+
+네 요청이 총 120토큰을 만들고 전체가 6초 걸렸다면 서버 처리량은 초당 20토큰입니다. 개별 요청의 초를 더하면 동시에 진행된 구간을 중복 계산하게 됩니다. 첫 글자 시간은 네 사용자 값의 중앙값을 사용합니다. 다음 단계에서 실제 측정값을 검산합니다.

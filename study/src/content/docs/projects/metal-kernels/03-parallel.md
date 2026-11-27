@@ -1,0 +1,66 @@
+---
+title: "03 · 여러 스레드로 한 행 나누기"
+sidebar:
+  order: 3
+---
+
+**목표** · 열 수가 수천 개인 행을 한 스레드가 순회하던 일을 32개 스레드가 나누도록 변경합니다. 각 스레드는 자기 열들의 제곱합을 구하고, 그룹은 그 부분합을 절반씩 합칩니다.
+
+## 1. 두 번째 구현 추가하기
+
+2단계의 `kernels.py` 맨 아래에 붙입니다. 그룹마다 스레드 32개를 정확히 배치하므로 폭이 32의 배수가 아니어도 마지막 열을 처리합니다. 모든 스레드가 같은 순서로 barrier에 도달해야 공유 메모리의 값이 준비됩니다.
+
+```python
+parallel_kernel = mx.fast.metal_kernel(
+    name="lab_rms_parallel", input_names=["inp", "weight"], output_names=["out"],
+    source="""
+    uint lane = thread_position_in_threadgroup.x;
+    uint width = inp_shape[1];
+    uint start = threadgroup_position_in_grid.x * width;
+    threadgroup float partial[32];
+    float subtotal = 0.0f;
+    for (uint col = lane; col < width; col += 32) {
+        float value = inp[start + col];
+        subtotal += value * value;
+    }
+    partial[lane] = subtotal;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    for (uint step = 16; step > 0; step /= 2) {
+        if (lane < step) partial[lane] += partial[lane + step];
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    float scale = metal::rsqrt(partial[0] / float(width) + 1e-6f);
+    for (uint col = lane; col < width; col += 32)
+        out[start + col] = inp[start + col] * scale * weight[col];
+    """,
+)
+
+def parallel(x, w):
+    rows, cols = x.shape
+    assert rows and cols and w.shape == (cols,)
+    return parallel_kernel(inputs=[x, w], grid=(rows * 32, 1, 1),
+                           threadgroup=(32, 1, 1),
+                           output_shapes=[x.shape], output_dtypes=[x.dtype])[0]
+```
+
+## 2. 경계값 검사하기
+
+아래를 `check.py`로 저장하고 `python check.py`를 실행하세요.
+
+```python
+from baseline import mx, reference
+from kernels import serial, parallel
+
+mx.random.seed(7)
+for rows, cols in [(1, 1), (2, 31), (3, 32), (4, 33), (2, 4097)]:
+    x = mx.random.normal((rows, cols))
+    w = mx.random.normal((cols,))
+    expected = reference(x, w)
+    for fn in (serial, parallel):
+        result = fn(x, w)
+        error = mx.max(mx.abs(result - expected)).item()
+        print(rows, cols, fn.__name__, error)
+        assert mx.allclose(result, expected, rtol=1e-4, atol=1e-5).item()
+```
+
+열 수 33일 때 lane 0이 0번과 32번 열을 모두 맡습니다. 이 경우만 틀리면 열 순회의 증분과 종료 조건을 살펴보세요. 부동소수점의 합산 순서가 달라지므로 출력이 모든 비트에서 동일해야 한다고 가정하지 않습니다.

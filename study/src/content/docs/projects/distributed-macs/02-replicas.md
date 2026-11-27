@@ -1,0 +1,43 @@
+---
+title: "02 · 같은 모델의 서버 두 개 띄우기"
+sidebar:
+  order: 2
+---
+
+**준비** · 1단계의 모델을 양쪽에 내려받은 상태입니다. 이 단계에서는 요청 한 건의 생성 작업이 맥 한 대 안에서 끝납니다.
+
+## 1. A와 B에서 서버 시작하기
+
+각 장비의 터미널에서 실행하고 그대로 둡니다. 양쪽 모두 자기 장비의 루프백 포트 8091을 사용합니다.
+
+```sh
+cd /Users/Shared/mac-inference-lab
+source venv/bin/activate
+mlx_lm.server --model mlx-community/Qwen3-0.6B-4bit --host 127.0.0.1 --port 8091
+```
+
+A에서 새 터미널을 열고, 1단계의 실제 맥북 주소로 아래 터널을 엽니다. 이 터미널도 실행 상태로 둡니다. A의 8092 포트로 오는 연결이 B의 8091로 전달됩니다.
+
+```sh
+ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:8092:127.0.0.1:8091 내계정@내맥북.local
+```
+
+한 맥으로 연습한다면 터널 대신 두 번째 서버의 포트를 8092로 지정합니다. 두 모델을 동시에 올릴 메모리 여유가 있어야 합니다.
+
+## 2. A에서 양쪽 모델 확인하기
+
+A에서 별도 터미널을 열고 아래를 실행합니다. /v1/models가 성공한 뒤 짧은 추론도 성공해야 라우터를 연결할 준비가 됩니다.
+
+```sh
+cd /Users/Shared/mac-inference-lab
+source venv/bin/activate
+cat > request.json <<'JSON'
+{"model":"mlx-community/Qwen3-0.6B-4bit","messages":[{"role":"user","content":"2+3의 답을 숫자로만 써. /no_think"}],"max_tokens":64,"temperature":0}
+JSON
+for port in 8091 8092; do
+  curl -fsS "http://127.0.0.1:$port/v1/models"
+  curl -fsS -H 'Content-Type: application/json' --data-binary @request.json     "http://127.0.0.1:$port/v1/chat/completions" | python -m json.tool
+done
+```
+
+각 응답의 `choices`와 `usage`를 확인합니다. 8091만 성공하면 B의 서버 터미널과 SSH 터널을 차례로 확인하세요. 모델명이 다르면 양쪽의 `/v1/models` 응답에서 같은 ID를 확인해 요청 파일에 입력합니다. [MLX-LM 서버 사용법](https://github.com/ml-explore/mlx-lm/blob/main/mlx_lm/SERVER.md)

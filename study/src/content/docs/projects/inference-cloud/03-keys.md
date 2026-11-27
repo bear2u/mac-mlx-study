@@ -1,0 +1,91 @@
+---
+title: "03 · API 키 발급과 사용 기록 저장소"
+description: "원본 키를 한 번만 발급하고 사용자별 요청을 기록합니다."
+sidebar:
+  order: 3
+---
+
+게이트웨이에서는 질문마다 누가 요청했는지 알아야 합니다. 추측하기 어려운 임의 키를 한 번 출력하고, 데이터베이스에는 해시와 소유자 이름을 기록합니다. 요청 테이블은 입력·출력 토큰 수를 따로 보관합니다. 중간 취소로 값이 전달되지 않으면 해당 칸은 NULL입니다.
+
+## store.py 저장하기
+
+```python
+import hashlib
+import secrets
+import sqlite3
+import sys
+from contextlib import closing
+from pathlib import Path
+
+DB = Path(__file__).with_name("lab.sqlite3")
+
+
+def connect():
+    db = sqlite3.connect(DB)
+    db.row_factory = sqlite3.Row
+    return db
+
+
+def initialize():
+    with closing(connect()) as db, db:
+        db.executescript("""
+            CREATE TABLE IF NOT EXISTS keys (
+                digest TEXT PRIMARY KEY, owner TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS runs (
+                id TEXT PRIMARY KEY, owner TEXT, model TEXT, state TEXT,
+                wait_ms INTEGER, input_tokens INTEGER, output_tokens INTEGER
+            );
+        """)
+
+
+def digest(key):
+    return hashlib.sha256(key.encode()).hexdigest()
+
+
+def issue(owner):
+    key = secrets.token_urlsafe(32)
+    with closing(connect()) as db, db:
+        db.execute("INSERT INTO keys VALUES (?, ?)", (digest(key), owner))
+    return key
+
+
+def lookup(key):
+    with closing(connect()) as db:
+        row = db.execute("SELECT owner FROM keys WHERE digest=?", (digest(key),)).fetchone()
+        return row["owner"] if row else None
+
+
+def record(values):
+    with closing(connect()) as db, db:
+        db.execute("INSERT INTO runs VALUES (?, ?, ?, ?, ?, ?, ?)", values)
+
+
+def history(owner):
+    with closing(connect()) as db:
+        return [dict(row) for row in db.execute(
+            "SELECT * FROM runs WHERE owner=? ORDER BY rowid DESC LIMIT 50", (owner,)
+        )]
+
+
+if __name__ == "__main__":
+    initialize()
+    print(issue(sys.argv[1]))
+```
+
+## 터미널 B에서 두 사용자 만들기
+
+```sh
+export ALICE=$(python store.py alice)
+export BOB=$(python store.py bob)
+python - <<'PYTEST'
+import os
+import store
+assert store.lookup(os.environ["ALICE"]) == "alice"
+assert store.lookup(os.environ["BOB"]) == "bob"
+assert store.lookup("잘못된-키") is None
+print("두 사용자와 거절 경로 확인")
+PYTEST
+```
+
+`lab.sqlite3`가 생깁니다. 키를 재발급하면 새 키가 생기고 기존 키도 등록 상태로 남습니다. 사용자 구분은 서비스에서 부여한 고유한 이름을 전제로 합니다. 이후 curl 검사는 이 터미널에서 실행하세요. 다른 터미널은 환경변수를 상속하지 않습니다.

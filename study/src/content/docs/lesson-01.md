@@ -1,0 +1,33 @@
+---
+title: "01 · 맥에서 첫 모델 실행하기"
+description: "내 맥은 어떤 조건에서 첫 답을 생성했을까?"
+sidebar:
+  order: 1
+---
+
+**내 맥은 어떤 조건에서 첫 답을 생성했을까?**
+
+모델 파일에는 학습된 가중치가 들어 있습니다. MLX-LM은 이 가중치와 토크나이저를 불러와 다음 토큰을 한 개씩 선택합니다. 첫 실행에는 모델 다운로드 시간이 포함됩니다.
+
+## 직접 해보기
+
+터미널에서 아래 명령을 실행하세요. 인터넷 연결과 모델 파일을 보관할 디스크 공간이 필요합니다. 다음 과에서도 같은 폴더와 가상환경을 사용합니다.
+
+```sh
+mkdir -p ~/mac-inference-lab
+cd ~/mac-inference-lab
+system_profiler SPHardwareDataType | head -12
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -U mlx-lm
+export MODEL=mlx-community/Qwen2.5-7B-Instruct-4bit
+mlx_lm.generate --model "$MODEL" --prompt "통합 메모리를 두 문장으로 설명해줘." --max-tokens 128
+```
+
+새 터미널에서는 위의 cd, source, export 세 줄을 다시 실행하세요. 같은 명령을 한 번 더 실행하고 출력 끝의 Prompt, Generation, Peak memory 항목을 찾으세요.
+
+## 실험 노트
+
+칩 이름, 통합 메모리 용량, 모델 ID, 출력 토큰 수와 생성 속도를 기록합니다. 두 번째 실행에서 다운로드가 생략되는지 확인하세요.
+
+[공식 참고 자료](https://github.com/ml-explore/mlx-lm)
