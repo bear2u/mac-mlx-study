@@ -1,0 +1,94 @@
+---
+title: "07 · 내 맥의 Qwen MLX로 오프라인 RAG 검증하기"
+description: "기존 27B MLX 모델을 LangGraph에 연결하고, 외부 연결을 차단한 상태에서 문서 근거와 답을 대조합니다."
+---
+
+**이미 Qwen을 돌리는 맥이라면 그 모델이 내 문서도 찾아볼 수 있을까요?** 이 실습에서는 실행 중이던 Qwen3.8-27B 4비트 MLX 모델을 그대로 사용했습니다. 가상의 관측소 매뉴얼에만 있는 확인 문구를 질문하고, 모델이 그 문구를 **어느 문서에서 가져왔는지**까지 검사합니다.
+
+**이미 설치된 맥에서 먼저 체험하기** · [로컬 RAG 채팅](http://127.0.0.1:7860/)을 열고 Documents에 `solbit.md`가 있는지 확인하세요. Chat에서 “은색 기록계는 언제 어디에 반납해?”라고 물어봅니다. 화면이 닫혀 있다면 설치 폴더의 `local-rag/start.command`를 실행하세요. 아래는 같은 구성을 별도 실습 폴더에 처음부터 만드는 과정입니다.
+
+## 1. 기존 모델과 검색 모델의 역할 구분하기
+
+| 구성 | 이 맥에서 사용한 것 | 하는 일 |
+| --- | --- | --- |
+| 채팅 모델 | Qwen 27B 4비트, 로컬 MLX 서버 11343 | 질문 재작성, 검색 도구 호출, 최종 답변 |
+| 검색 모델 | 다국어 MiniLM ONNX + Qdrant BM25 | 문장의 의미와 단어 단서로 근거 후보 검색 |
+| 저장소 | 로컬 Qdrant + 부모 청크 JSON | 파일명과 원문 문맥 복원 |
+| 인터페이스 | LangGraph + Gradio, 7860 | 도구 실행과 채팅 화면 |
+
+기존 서버가 켜진 터미널과 별도로 다음 명령을 실행합니다. 모델 ID가 나오면 연결된 것입니다. 이 ID는 로컬 경로일 수도 있으므로 외부에 로그를 공유할 때 확인하세요.
+
+```sh
+curl -fsS http://127.0.0.1:11343/v1/models
+```
+
+필요한 서버 기능은 OpenAI 호환 chat completions, 도구 호출, 스트리밍입니다. 실습 어댑터는 위 목록의 첫 모델을 선택하므로 한 모델을 제공하는 서버를 사용합니다. Qwen 가중치와 MLX 서버 환경은 미리 준비합니다. 1강의 Ollama 설치 단계는 건너뛸 수 있습니다.
+
+## 2. 실습 폴더 만들고 모델 연결 바꾸기
+
+아래 명령은 **새 폴더**에서 실행합니다. Python 3.12가 필요합니다. 학습 저장소에서 실습 파일을 가져오고, 강의에서 확인한 버전의 원본 RAG 앱에 변경 사항을 적용합니다. [실습 파일과 패치](https://github.com/bear2u/mac-mlx-study/tree/main/labs/qwen-mlx)
+
+```sh
+mkdir -p ~/mac-inference-lab
+cd ~/mac-inference-lab
+mkdir qwen-rag-lab && cd qwen-rag-lab
+git clone --depth 1 https://github.com/bear2u/mac-mlx-study.git course
+cp -R course/labs/qwen-mlx/. .
+git clone https://github.com/GiovanniPasq/agentic-rag-for-dummies.git app
+git -C app checkout --detach c1b339b54f0927bd0b469fcce70f3cd5de4e918d
+git -C app apply --check ../mlx.patch && git -C app apply ../mlx.patch
+cp local_models.py app/project/core/local_models.py
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+```
+
+패치에서 볼 곳은 세 군데입니다. `rag_system.py`는 기존 MLX 서버의 모델 ID를 읽어 LangChain에 연결합니다. `nodes.py`는 질문 재작성 결과를 함수 호출 형식으로 받습니다. `vector_db_manager.py`는 이미 저장된 ONNX 모델과 BM25 파일을 읽습니다. 서버 주소는 루프백이고 어댑터의 `api_key="local"`은 클라이언트 생성에 필요한 임의 문자열입니다.
+
+## 3. 인터넷이 있을 때 검색 파일 준비하기
+
+```sh
+HF_HOME="$PWD/cache/hf" TIKTOKEN_CACHE_DIR="$PWD/cache/tiktoken" \
+  .venv/bin/python cache_search.py
+ls -lh models/dense/model_optimized.onnx models/sparse/config.json
+cat example/solbit.md
+```
+
+이 단계가 검색 모델과 토큰 인코딩을 받는 단계입니다. `example/solbit.md`에는 두 장비의 규칙이 있습니다. 파란 건조함의 확인 문구 **달빛우표-483**은 이번 실습용으로 만든 값입니다. 이후 검증은 해당 문자열이 검색 결과와 최종 답에 모두 나타나는지 확인합니다.
+
+## 4. RAG와 모델 양쪽의 외부 통신 차단하기
+
+Wi-Fi는 그대로 두고 macOS의 `sandbox-exec`를 두 프로세스에 각각 적용합니다. `offline.sb`는 외부로 나가는 네트워크 연결을 제한하고 루프백과 로컬 소켓을 허용합니다. 환경변수로는 모델 허브의 오프라인 모드를 켜고 외부 추적을 끕니다. 환경변수만 켜는 것과 실제 외부 연결이 거부되는 것은 구분해서 확인합니다.
+
+**터미널 A · 검증용 MLX 서버.** 기존 11343 서비스를 사용하는 사람이 있어 검증 때만 같은 가중치를 11345에 한 번 더 로드했습니다. 그만큼 메모리 여유가 필요합니다. 아래에서 두 경로를 자신의 기존 MLX 실행 파일과 모델 폴더로 바꾸세요. 기존 환경을 활성화했다면 `command -v mlx_vlm.server`로 실행 파일을 찾을 수 있습니다.
+
+```sh
+cd ~/mac-inference-lab/qwen-rag-lab
+source ./offline-env.sh
+MLX_SERVER="/실제/MLX가상환경/bin/mlx_vlm.server"
+QWEN_WEIGHTS="/실제/Qwen-27B-4bit-모델폴더"
+sandbox-exec -f offline.sb "$MLX_SERVER" --model "$QWEN_WEIGHTS" \
+  --host 127.0.0.1 --port 11345
+```
+
+**터미널 B · 검증용 RAG.** 같은 실습 폴더에서 실행합니다. 검증기는 외부 IP로의 TCP 연결이 macOS에서 `EPERM`으로 거부되는지 먼저 확인합니다. 이어서 예제 문서를 색인하고 실제 LangGraph 그래프에 질문을 보냅니다.
+
+```sh
+cd ~/mac-inference-lab/qwen-rag-lab
+source ./offline-env.sh
+curl -fsS http://127.0.0.1:11345/v1/models
+RAG_MLX_PORT=11345 PYTHONPATH="$PWD/app/project" \
+  sandbox-exec -f offline.sb .venv/bin/python verify_offline.py
+```
+
+**통과 기준** · 도구가 반환한 문맥 안에 `solbit.md`와 확인 문구가 함께 있고, 답에도 장소·시각·문구가 있어야 합니다. 같은 문서를 새로 색인하면 디스크에 저장되므로 다음 실행에서도 사용됩니다. 로컬 Qdrant 잠금 오류가 뜨면 **같은 실습 폴더**를 사용하는 채팅 앱을 먼저 종료하고 검증기를 다시 실행하세요.
+
+## 5. 실제 결과를 읽고 두 번째 질문 보내기
+
+| 어디에서 물었나 | 질문 | 이 맥에서 받은 답 |
+| --- | --- | --- |
+| 모델과 RAG 모두 외부 TCP를 차단한 검증 실행 | 파란 건조함의 반납 시각·장소·확인 문구는? | 관측 당일 **21시 10분**, **동쪽 보관실**, **달빛우표-483**. 출처 solbit.md |
+| 평소 사용하는 11343 모델에 연결한 Gradio 채팅 | 은색 기록계는 언제 어디로 반납하나? | **다음 날 08시 40분**, **서쪽 보관실**. 출처 solbit.md |
+
+터미널 B의 검증이 끝나면 터미널 A에서 Ctrl+C로 검증용 모델을 종료하세요. 기존 11343 서버가 실행 중인 상태에서 실습 폴더의 `./start.command`를 실행하고 [내 맥의 채팅 화면](http://127.0.0.1:7860/)을 엽니다. 새 폴더로 따라 하는 동안 7860에 기존 앱이 이미 열려 있다면 새 앱을 띄우기 전에 기존 앱의 터미널에서 종료하세요. 엄격한 차단 조건으로 **화면까지** 시험하려면 터미널 A를 계속 켜 둔 채 `RAG_MLX_PORT=11345 ./start.command`로 시작합니다.
+
+**마무리 질문** · “파란 건조함은 어디에 반납하지?”를 보내고 화면의 검색 도구 결과를 펼쳐 보세요. 답의 장소와 도구가 가져온 원문이 일치하면, 모델 연결부터 검색·근거 확인까지 한 번의 요청을 끝까지 따라간 것입니다.
