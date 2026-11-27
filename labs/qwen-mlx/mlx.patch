@@ -1,0 +1,63 @@
+diff --git a/project/core/rag_system.py b/project/core/rag_system.py
+index e51485f..b24c613 100644
+--- a/project/core/rag_system.py
++++ b/project/core/rag_system.py
+@@ -1,5 +1,5 @@
+ import uuid
+-from langchain_ollama import ChatOllama
++from core.local_models import chat_model
+ import config
+ from db.vector_db_manager import VectorDbManager
+ from db.parent_store_manager import ParentStoreManager
+@@ -24,11 +24,7 @@ class RAGSystem:
+         self.vector_db.create_collection(self.collection_name)
+         collection = self.vector_db.get_collection(self.collection_name)
+ 
+-        llm = ChatOllama(
+-            model=config.LLM_MODEL,
+-            temperature=config.LLM_TEMPERATURE,
+-            seed=config.LLM_SEED,
+-        )
++        llm = chat_model()
+         tools = ToolFactory(collection).create_tools()
+         self.agent_graph = create_agent_graph(llm, tools)
+ 
+diff --git a/project/db/vector_db_manager.py b/project/db/vector_db_manager.py
+index f145927..28253db 100644
+--- a/project/db/vector_db_manager.py
++++ b/project/db/vector_db_manager.py
+@@ -1,17 +1,17 @@
+ import config
+-from langchain_huggingface import HuggingFaceEmbeddings
++from core.local_models import LocalDense, MODELS
+ from langchain_qdrant import QdrantVectorStore, FastEmbedSparse, RetrievalMode
+ from qdrant_client import QdrantClient
+ from qdrant_client.http import models as qmodels
+ 
+ class VectorDbManager:
+     __client: QdrantClient
+-    __dense_embeddings: HuggingFaceEmbeddings
++    __dense_embeddings: LocalDense
+     __sparse_embeddings: FastEmbedSparse
+     def __init__(self):
+         self.__client = QdrantClient(path=config.QDRANT_DB_PATH)
+-        self.__dense_embeddings = HuggingFaceEmbeddings(model_name=config.DENSE_MODEL)
+-        self.__sparse_embeddings = FastEmbedSparse(model_name=config.SPARSE_MODEL)
++        self.__dense_embeddings = LocalDense()
++        self.__sparse_embeddings = FastEmbedSparse(model_name=config.SPARSE_MODEL, specific_model_path=str(MODELS / "sparse"), local_files_only=True)
+ 
+     def _dense_vector_size(self):
+         return len(self.__dense_embeddings.embed_query("test"))
+diff --git a/project/rag_agent/nodes.py b/project/rag_agent/nodes.py
+index 4fc3298..39f9aac 100644
+--- a/project/rag_agent/nodes.py
++++ b/project/rag_agent/nodes.py
+@@ -137,7 +137,7 @@ def rewrite_query(state: State, llm):
+         original_query = current_query
+ 
+     context_section = "\n\n".join(context_parts)
+-    llm_with_structure = llm.with_structured_output(QueryAnalysis)
++    llm_with_structure = llm.with_structured_output(QueryAnalysis, method="function_calling")
+     response = llm_with_structure.invoke([SystemMessage(content=get_rewrite_query_prompt()), HumanMessage(content=context_section)])
+     clarification_message_update = (
+         [_name_internal_message(last_message, "clarification_response")]
