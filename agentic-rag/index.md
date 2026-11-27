@@ -1,0 +1,29 @@
+---
+title: "에이전틱 RAG"
+description: "맥에서 로컬 문서 검색 에이전트를 실행하고 근거를 검증하는 실습"
+---
+
+> Documentation Index
+> Fetch the complete documentation index at: https://bear2u.github.io/mac-mlx-study/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# 에이전틱 RAG
+
+**같은 문서를 주었는데 왜 어떤 질문은 맞히고 어떤 질문은 틀릴까요?** 가상의 관측소 매뉴얼 한 장을 만들고, 검색 결과에서 답변까지 한 질문을 끝까지 추적합니다. 최종 결과물은 내 맥에서 실행되는 문서 챗봇과 근거·정답을 따로 기록한 채점표입니다.
+
+Apple Silicon 맥, 터미널, 모델을 내려받을 인터넷 연결과 디스크 여유를 준비하세요. 대화 모델은 Ollama, 문서 색인은 로컬 Qdrant, 도구 선택과 질문 분기는 LangGraph가 맡습니다.
+
+## 실습 순서
+
+- [01 · 맥에 실습 환경 준비하기](https://bear2u.github.io/mac-mlx-study/agentic-rag/01-mac/) — Ollama와 Python을 따로 점검하고 원본 앱의 버전을 고정합니다.
+- [02 · 정답을 아는 문서로 첫 대화하기](https://bear2u.github.io/mac-mlx-study/agentic-rag/02-document/) — 작은 Markdown 문서 하나를 색인하고 Gradio에서 첫 답변을 확인합니다.
+- [03 · 부모와 자식 청크 해부하기](https://bear2u.github.io/mac-mlx-study/agentic-rag/03-chunks/) — 한 파일에서 검색용 조각과 문맥 복원용 조각이 어떻게 연결되는지 관찰합니다.
+- [04 · 모델 없이 검색 근거 추적하기](https://bear2u.github.io/mac-mlx-study/agentic-rag/04-search/) — 하이브리드 검색이 반환한 문장과 부모 원문을 직접 비교합니다.
+- [05 · 에이전트가 다음 행동을 고르는 과정 보기](https://bear2u.github.io/mac-mlx-study/agentic-rag/05-graph/) — 검색·부모 조회·질문 분해·되묻기의 경로를 실제 질문으로 구분합니다.
+- [06 · 검색 실패와 답변 실패를 나눠 평가하기](https://bear2u.github.io/mac-mlx-study/agentic-rag/06-evaluate/) — 작은 채점 세트로 근거 검색과 최종 답변의 오류 위치를 구분합니다.
+
+## 기반 프로젝트
+
+GiovanniPasq의 Agentic RAG for Dummies를 바탕으로, macOS에서 재현할 수 있도록 한국어 예제 문서와 검증 절차를 구성했습니다. [강의 기준 소스 · c1b339b](https://github.com/GiovanniPasq/agentic-rag-for-dummies/tree/c1b339b54f0927bd0b469fcce70f3cd5de4e918d)
+
+Source: https://bear2u.github.io/mac-mlx-study/agentic-rag/index.mdx

@@ -1,0 +1,45 @@
+---
+title: "02 · 정답을 아는 문서로 첫 대화하기"
+description: "작은 Markdown 문서 하나를 색인하고 Gradio에서 첫 답변을 확인합니다."
+---
+
+> Documentation Index
+> Fetch the complete documentation index at: https://bear2u.github.io/mac-mlx-study/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# 02 · 정답을 아는 문서로 첫 대화하기
+
+## 시험용 매뉴얼 만들기
+
+아래 명령으로 실습 자료를 만듭니다. 장비 이름과 시각은 지어낸 값입니다. 정답 문장과 문서에 없는 정보를 구분하기 쉬워집니다.
+
+```sh
+mkdir -p lab-input
+cat > lab-input/solbit.md <<'DOC'
+# 솔빛 관측소 장비 대여
+## 건조함
+파란 건조함의 대여 코드는 자두-17이다.
+파란 건조함은 관측 당일 21시 10분까지 동쪽 보관실에 반납한다.
+반납할 때 담당자는 잠금쇠를 확인한다.
+## 기록계
+은색 기록계의 대여 코드는 모래-32다.
+은색 기록계는 다음 날 08시 40분까지 서쪽 보관실에 반납한다.
+확인표에는 기록계의 일련번호를 적는다.
+DOC
+GRADIO_SERVER_NAME=127.0.0.1 uv run --locked python project/app.py
+```
+
+터미널에 출력된 로컬 주소를 엽니다. 처음에는 검색용 임베딩 모델도 다운로드하므로 UI가 열리기까지 시간이 걸릴 수 있습니다. 창을 열어 둔 채 다른 명령은 두 번째 터미널에서 실행하세요.
+
+## 첫 답과 원문 대조하기
+
+1. **Documents**에서 위 파일을 선택하고 **Add Documents**를 누릅니다. 파일 선택 창에서 Command+Shift+G를 누르면 경로를 입력할 수 있습니다.
+2. 목록에 solbit.md가 표시되고 Added가 1인지 확인합니다. 이미 넣은 같은 이름은 건너뜁니다.
+3. **Chat**에서 “솔빛 관측소의 파란 건조함은 언제 어디에 반납해? 근거 문장도 보여줘.”라고 묻습니다.
+4. ‘관측 당일’, ‘21시 10분’, ‘동쪽 보관실’ 세 요소와 인용문을 원문과 대조하세요. 첫 답을 실험 노트에 그대로 저장합니다.
+
+**막힐 때** · 파일은 등록됐는데 답변이 멈추면 Ollama의 11434 응답과 모델 목록을 다시 확인합니다. 문서를 수정한 경우 같은 이름으로 다시 올리면 건너뛸 수 있습니다. 비교 실험에는 새 이름을 쓰고, 기존 버전과 사실이 충돌하는 문서는 같은 색인에 섞지 마세요.
+
+[이 단계의 원본 코드](https://github.com/GiovanniPasq/agentic-rag-for-dummies/blob/c1b339b54f0927bd0b469fcce70f3cd5de4e918d/project/core/document_manager.py)
+
+Source: https://bear2u.github.io/mac-mlx-study/agentic-rag/02-document/index.mdx

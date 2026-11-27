@@ -20,3 +20,4 @@ Full documentation (discoverable current pages, one document): https://bear2u.gi
 - [11 · RMSNorm 연산의 정확도와 속도](https://bear2u.github.io/mac-mlx-study/lesson-11/index.md) — 작은 연산을 바꾸었을 때 같은 결과를 더 빨리 얻을까?
 - [12 · 내 맥의 추론 실험 보고서](https://bear2u.github.io/mac-mlx-study/lesson-12/index.md) — 내가 쓰는 작업에 가장 적합한 설정은 무엇일까?
 - [프로젝트 실습](https://bear2u.github.io/mac-mlx-study/projects/llms.txt)
+- [에이전틱 RAG](https://bear2u.github.io/mac-mlx-study/agentic-rag/llms.txt)
