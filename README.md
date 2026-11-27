@@ -1,6 +1,6 @@
 # 맥 AI 추론 실습실
 
-Apple Silicon 맥에서 AI 추론을 공부하는 한국어 튜토리얼입니다. 기본 강의 12개와 프로젝트 6개의 단계별 실습을 담았습니다.
+Apple Silicon 맥에서 AI 추론을 공부하는 한국어 튜토리얼입니다. 기본 강의 12개와 프로젝트 6개의 단계별 실습, 맥용 에이전틱 RAG 튜토리얼 6강을 담았습니다.
 
 [공부 사이트](https://bear2u.github.io/mac-mlx-study/) · [프로젝트 실습](https://bear2u.github.io/mac-mlx-study/projects/)
 
